@@ -1,11 +1,14 @@
 import enum
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Set, Tuple, Union
+
+GAP_PENALTY = -1
+GAP_EXTENSION_PENALTY = -1
 
 
 class ScoringFunction:
     """Abstract class for scoring functions"""
 
-    def __init__(self, gap_penalty: int):
+    def __init__(self, gap_penalty: int = GAP_PENALTY):
         self.gap_penalty = gap_penalty
 
     def score(self, gap_lenght: int) -> int:
@@ -15,7 +18,7 @@ class ScoringFunction:
 class ConstantGapPenalty(ScoringFunction):
     """Constant gap penalty scoring function"""
 
-    def __init__(self, gap_penalty: int):
+    def __init__(self, gap_penalty: int = GAP_PENALTY):
         super().__init__(gap_penalty)
 
     def score(self, gap_lenght: int) -> int:
@@ -25,7 +28,7 @@ class ConstantGapPenalty(ScoringFunction):
 class LinearGapPenalty(ScoringFunction):
     """Linear gap penalty scoring function"""
 
-    def __init__(self, gap_penalty: int):
+    def __init__(self, gap_penalty: int = GAP_PENALTY):
         super().__init__(gap_penalty)
         pass
 
@@ -36,7 +39,11 @@ class LinearGapPenalty(ScoringFunction):
 class AffineGapPenalty(ScoringFunction):
     """Affine gap penalty scoring function"""
 
-    def __init__(self, gap_penalty: int, gap_extension_penalty: int):
+    def __init__(
+        self,
+        gap_penalty: int = GAP_PENALTY,
+        gap_extension_penalty: int = GAP_EXTENSION_PENALTY,
+    ):
         super().__init__(gap_penalty)
         self.gap_extension_penalty = gap_extension_penalty
 
@@ -221,15 +228,42 @@ class ScoringMatrix:
         return [Alignment(sequence_1_alignment, sequence_2_alignment)]
 
 
+SCORING_FUNCTIONS = {
+    "constant": ConstantGapPenalty,
+    "linear": LinearGapPenalty,
+    "affine": AffineGapPenalty,
+}
+
+SUBSTITUTION_MATRICES = {"nucleotide": NucleotideSubstitutionMatrix}
+
+
 class NeedlemanWunsch:
     def __init__(
-        self, scoring_function: ScoringFunction, substitution_matrix: SubstitutionMatrix
+        self,
+        scoring_function: Union[str, ScoringFunction] = "constant",
+        substitution_matrix: Union[str, SubstitutionMatrix] = "nucleotide",
     ) -> None:
-        self.scoring_function = scoring_function
-        self.substitution_matrix = substitution_matrix
+        # Setup
+        if isinstance(scoring_function, str):
+            if scoring_function not in SCORING_FUNCTIONS:
+                raise ValueError("Invalid scoring function")
+            self.scoring_function = SCORING_FUNCTIONS[scoring_function]()
+        else:
+            self.scoring_function = scoring_function
 
-    def align(self, sequence_1, sequence_2) -> List[Alignment]:
+        if isinstance(substitution_matrix, str):
+            if substitution_matrix not in SUBSTITUTION_MATRICES:
+                raise ValueError("Invalid substitution matrix")
+            self.substitution_matrix = SUBSTITUTION_MATRICES[substitution_matrix]()
+        else:
+            self.substitution_matrix = substitution_matrix  # type: ignore
+
+    def align(self, sequence_1, sequence_2) -> Tuple[List[Alignment], int]:
         """Align two sequences using the Needleman-Wunsch algorithm"""
-        # scoring_matrix = ScoringMatrix(sequence_1, sequence_2)
-        # return scoring_matrix.traceback()
-        pass
+        scoring_matrix = ScoringMatrix(
+            sequence_1, sequence_2, self.scoring_function, self.substitution_matrix
+        )
+        scoring_matrix.fill()
+        alignments = scoring_matrix.get_alignments()
+        optimal_score = scoring_matrix.get_optimal_score()
+        return alignments, optimal_score

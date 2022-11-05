@@ -33,4 +33,4 @@ To run tests with coverage:
 
 To run the program:
 
-    python src/main.py
+    python src/main.py GATTACA GTCGACGCA
