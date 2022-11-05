@@ -17,18 +17,18 @@ class TestNucleotideSubstitutionMatrix(TestCase):
         symbol_2 = "A"
 
         substitution_matrix = NucleotideSubstitutionMatrix()
-        is_equal = substitution_matrix.is_equal(symbol_1, symbol_2)
+        score = substitution_matrix.get_score(symbol_1, symbol_2)
 
-        self.assertTrue(is_equal)
+        self.assertEqual(score, 1)
 
     def test_different_valid_symbols(self):
         symbol_1 = "A"
         symbol_2 = "C"
 
         substitution_matrix = NucleotideSubstitutionMatrix()
-        is_equal = substitution_matrix.is_equal(symbol_1, symbol_2)
+        score = substitution_matrix.get_score(symbol_1, symbol_2)
 
-        self.assertFalse(is_equal)
+        self.assertEqual(score, -1)
 
     def test_invalid_symbol(self):
         symbol_1 = "X"
@@ -36,7 +36,7 @@ class TestNucleotideSubstitutionMatrix(TestCase):
 
         substitution_matrix = NucleotideSubstitutionMatrix()
         with self.assertRaises(InvalidSymbolError):
-            substitution_matrix.is_equal(symbol_1, symbol_2)
+            substitution_matrix.get_score(symbol_1, symbol_2)
 
 
 class TestScoringMatrix(TestCase):
@@ -77,7 +77,7 @@ class TestScoringMatrix(TestCase):
         scoring_function = MagicMock(gap_penalty=-1)
         scoring_function.score.return_value = -1
         substitution_matrix = MagicMock()
-        substitution_matrix.is_equal.return_value = True
+        substitution_matrix.get_score.return_value = 1
 
         scoring_matrix = ScoringMatrix(
             sequence_1, sequence_2, scoring_function, substitution_matrix
@@ -185,14 +185,3 @@ class TestScoringMatrix(TestCase):
 
         expected_alignment = Alignment("GA", "G-")
         self.assertEqual(alignments, [expected_alignment])
-
-
-# class TestNeedlemanWunsch(TestCase):
-#     def test_equal_sequences(self):
-#         sequence_1 = "ACGT"
-#         sequence_2 = "ACGT"
-
-#         needleman_wunsch = NeedlemanWunsch()
-#         alignments = needleman_wunsch.compare(sequence_1, sequence_2)
-
-#         self.assertEqual(len(alignments), 1)

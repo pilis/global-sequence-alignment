@@ -33,4 +33,14 @@ To run tests with coverage:
 
 To run the program:
 
-    python src/main.py GATTACA GTCGACGCA
+    python src/main.py ./data/homologous/pax6/mouse.fna ./data/homologous/pax6/chicken.fna
+
+> This is comparison of mouse and chicken pax6 genes. The output is a table with the alignment of the sequences. DNA similarity can be found here: https://www.ncbi.nlm.nih.gov/homologene/?term=Pax6%5Bgene+name%5D+AND+mouse%5Borgn%5D&report=alignmentscores
+
+To run the program for proteins:
+
+    python src/main.py ./data/proteins/insulin/hamster.faa ./data/proteins/insulin/human.faa --substitution_matrix=protein
+
+To run the program with directly provided sequences:
+
+    python src/main.py --direct GATTACA GTCGACGCA

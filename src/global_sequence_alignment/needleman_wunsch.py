@@ -1,5 +1,6 @@
 import enum
-from typing import Dict, List, Set, Tuple, Union
+import logging
+from typing import List, Tuple, Union
 
 GAP_PENALTY = -1
 GAP_EXTENSION_PENALTY = -1
@@ -58,34 +59,98 @@ class InvalidSymbolError(Exception):
 
 
 class SubstitutionMatrix:
-    def __init__(self, transitions: Dict[str, Set[str]]):
-        self.transitions = transitions
+    def __init__(self, scores, symbol_to_index: List[str]):
+        self.scores = scores
+        self.symbol_to_index = symbol_to_index
 
-    def is_equal(self, symbol_1: str, symbol_2: str) -> bool:
-        if symbol_1 not in self.transitions:
+    def get_score(self, symbol_1: str, symbol_2: str) -> bool:
+        if symbol_1 not in self.symbol_to_index:
             raise InvalidSymbolError(
                 f"Symbol {symbol_1} is not in the substitution matrix"
             )
-        if symbol_2 not in self.transitions:
+        if symbol_2 not in self.symbol_to_index:
             raise InvalidSymbolError(
                 f"Symbol {symbol_2} is not in the substitution matrix"
             )
-        substitutes = self.transitions[symbol_1]
-        return symbol_2 in substitutes
+        symbol_1_index = self.symbol_to_index.index(symbol_1)
+        symbol_2_index = self.symbol_to_index.index(symbol_2)
+        score = self.scores[symbol_1_index][symbol_2_index]
+        return score
 
 
-NUCLEOTIDE_SUBSTITUTIONS = {"A": {"A"}, "C": {"C"}, "G": {"G"}, "T": {"T"}}
+NUCLEOTIDE_SCORES = [[1, -1, -1, -1], [-1, 1, -1, -1], [-1, -1, 1, -1], [-1, -1, -1, 1]]
 
 
 class NucleotideSubstitutionMatrix(SubstitutionMatrix):
     """Nucleotide substitution matrix"""
 
     def __init__(self):
-        super().__init__(transitions=NUCLEOTIDE_SUBSTITUTIONS)
+        super().__init__(scores=NUCLEOTIDE_SCORES, symbol_to_index=["A", "C", "G", "T"])
         pass
 
 
-# TODO: Implement substitution matrix for proteins
+# BLOSUM62 scores from https://www.ncbi.nlm.nih.gov/Class/FieldGuide/BLOSUM62.txt
+PROTEIN_SCORES = [
+    [4, 1, 2, 2, 0, 1, 1, 0, 2, 1, 1, 1, 1, 2, 1, 1, 0, 3, 2, 0, 2, 1, 0, 4],
+    [-1, 5, 0, 2, 3, 1, 0, 2, 0, 3, 2, 2, 1, 3, 2, 1, 1, 3, 2, 3, 1, 0, 1, 4],
+    [-2, 0, 6, 1, 3, 0, 0, 0, 1, 3, 3, 0, 2, 3, 2, 1, 0, 4, 2, 3, 3, 0, 1, 4],
+    [-2, 2, 1, 6, 3, 0, 2, 1, 1, 3, 4, 1, 3, 3, 1, 0, 1, 4, 3, 3, 4, 1, 1, 4],
+    [0, 3, 3, 3, 9, 3, 4, 3, 3, 1, 1, 3, 1, 2, 3, 1, 1, 2, 2, 1, 3, 3, 2, 4],
+    [-1, 1, 0, 0, 3, 5, 2, 2, 0, 3, 2, 1, 0, 3, 1, 0, 1, 2, 1, 2, 0, 3, 1, 4],
+    [-1, 0, 0, 2, 4, 2, 5, 2, 0, 3, 3, 1, 2, 3, 1, 0, 1, 3, 2, 2, 1, 4, 1, 4],
+    [0, 2, 0, 1, 3, 2, 2, 6, 2, 4, 4, 2, 3, 3, 2, 0, 2, 2, 3, 3, 1, 2, 1, 4],
+    [-2, 0, 1, 1, 3, 0, 0, 2, 8, 3, 3, 1, 2, 1, 2, 1, 2, 2, 2, 3, 0, 0, 1, 4],
+    [-1, 3, 3, 3, 1, 3, 3, 4, 3, 4, 2, 3, 1, 0, 3, 2, 1, 3, 1, 3, 3, 3, 1, 4],
+    [-1, 2, 3, 4, 1, 2, 3, 4, 3, 2, 4, 2, 2, 0, 3, 2, 1, 2, 1, 1, 4, 3, 1, 4],
+    [-1, 2, 0, 1, 3, 1, 1, 2, 1, 3, 2, 5, 1, 3, 1, 0, 1, 3, 2, 2, 0, 1, 1, 4],
+    [-1, 1, 2, 3, 1, 0, 2, 3, 2, 1, 2, 1, 5, 0, 2, 1, 1, 1, 1, 1, 3, 1, 1, 4],
+    [-2, 3, 3, 3, 2, 3, 3, 3, 1, 0, 0, 3, 0, 6, 4, 2, 2, 1, 3, 1, 3, 3, 1, 4],
+    [-1, 2, 2, 1, 3, 1, 1, 2, 2, 3, 3, 1, 2, 4, 7, 1, 1, 4, 3, 2, 2, 1, 2, 4],
+    [1, 1, 1, 0, 1, 0, 0, 0, 1, 2, 2, 0, 1, 2, 1, 4, 1, 3, 2, 2, 0, 0, 0, 4],
+    [0, 1, 0, 1, 1, 1, 1, 2, 2, 1, 1, 1, 1, 2, 1, 1, 5, 2, 2, 0, 1, 1, 0, 4],
+    [-3, 3, 4, 4, 2, 2, 3, 2, 2, 3, 2, 3, 1, 1, 4, 3, 2, 11, 2, 3, 4, 3, 2, 4],
+    [-2, 2, 2, 3, 2, 1, 2, 3, 2, 1, 1, 2, 1, 3, 3, 2, 2, 2, 7, 1, 3, 2, 1, 4],
+    [0, 3, 3, 3, 1, 2, 2, 3, 3, 3, 1, 2, 1, 1, 2, 2, 0, 3, 1, 4, 3, 2, 1, 4],
+    [-2, 1, 3, 4, 3, 0, 1, 1, 0, 3, 4, 0, 3, 3, 2, 0, 1, 4, 3, 3, 4, 1, 1, 4],
+    [-1, 0, 0, 1, 3, 3, 4, 2, 0, 3, 3, 1, 1, 3, 1, 0, 1, 3, 2, 2, 1, 4, 1, 4],
+    [0, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 0, 0, 2, 1, 1, 1, 1, 1, 4],
+    [-4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 1],
+]
+
+PROTEIN_SYMBOL_TO_INDEX = [
+    "A",
+    "R",
+    "N",
+    "D",
+    "C",
+    "Q",
+    "E",
+    "G",
+    "H",
+    "I",
+    "L",
+    "K",
+    "M",
+    "F",
+    "P",
+    "S",
+    "T",
+    "W",
+    "Y",
+    "V",
+    "B",
+    "Z",
+    "X",
+    "*",
+]
+
+
+class ProteinSubstitutionMatrix(SubstitutionMatrix):
+    """Protein substitution matrix"""
+
+    def __init__(self):
+        super().__init__(scores=PROTEIN_SCORES, symbol_to_index=PROTEIN_SYMBOL_TO_INDEX)
+        pass
 
 
 class Alignment:
@@ -130,6 +195,7 @@ class ScoringMatrix:
 
     def _init_matrices(self) -> Tuple[List[List[None]], List[List[TracebackDirection]]]:  # type: ignore
         """Initialize 2D matrix for holding scores and traceback directions"""
+        logging.info("Prepaing to initialize matrices")
         horizontal_length = len(self.sequence_1) + 1
         vertical_length = len(self.sequence_2) + 1
 
@@ -147,20 +213,27 @@ class ScoringMatrix:
 
         self.scoring_matrix = scoring_matrix
         self.traceback_matrix = traceback_matrix
+        logging.info(
+            "Initialized scoring and traceback matrices both of size %dx%d totalling to %d cells",
+            vertical_length,
+            horizontal_length,
+            vertical_length * horizontal_length,
+        )
 
     def fill(self):
         """Fill 2D matrix with scores"""
         horizontal_length = len(self.sequence_1) + 1
         vertical_length = len(self.sequence_2) + 1
+
+        cells_computed = 0
+        total_cells = vertical_length * horizontal_length
+        last_percentage = 0
         for j in range(1, vertical_length):
             for i in range(1, horizontal_length):
                 # Check symbol equality
                 symbol_1 = self.sequence_1[i - 1]
                 symbol_2 = self.sequence_2[j - 1]
-                is_symbol_match = self.substitution_matrix.is_equal(symbol_1, symbol_2)
-                symbol_score = (
-                    self.match_score if is_symbol_match else self.mismatch_score
-                )
+                symbol_score = self.substitution_matrix.get_score(symbol_1, symbol_2)
 
                 diagonal_value = self.scoring_matrix[j - 1][i - 1]
                 upper_value = self.scoring_matrix[j - 1][i]
@@ -168,8 +241,8 @@ class ScoringMatrix:
 
                 # Compute score
                 diagonal_score = diagonal_value + symbol_score
-                upper_score = upper_value + self.scoring_function.gap_penalty
-                side_score = side_value + self.scoring_function.gap_penalty
+                upper_score = upper_value + self.scoring_function.score(upper_value)
+                side_score = side_value + self.scoring_function.score(side_value)
 
                 # Set score
                 scores = [diagonal_score, upper_score, side_score]
@@ -185,6 +258,12 @@ class ScoringMatrix:
                 if scores[2] == max_score:
                     traceback_directions.append(TracebackDirection.SIDE)
                 self.traceback_matrix[j][i] = traceback_directions
+            cells_computed += horizontal_length
+
+            new_percentage = int(cells_computed / total_cells * 100)
+            if new_percentage > last_percentage:
+                logging.info("Computed %d%% of cells", new_percentage)
+                last_percentage = new_percentage
 
     def get_optimal_score(self) -> int:
         """Get optimal score from the bottom right corner of the matrix"""
@@ -195,6 +274,7 @@ class ScoringMatrix:
 
     def get_alignments(self) -> List[Alignment]:
         """Traceback 2D matrix to find optimal alignments"""
+        logging.info("Starting extracting alignments")
         sequence_1_alignment = ""
         sequence_2_alignment = ""
         horizontal_length = len(self.sequence_1)
@@ -234,7 +314,10 @@ SCORING_FUNCTIONS = {
     "affine": AffineGapPenalty,
 }
 
-SUBSTITUTION_MATRICES = {"nucleotide": NucleotideSubstitutionMatrix}
+SUBSTITUTION_MATRICES = {
+    "nucleotide": NucleotideSubstitutionMatrix,
+    "protein": ProteinSubstitutionMatrix,
+}
 
 
 class NeedlemanWunsch:
