@@ -2,6 +2,7 @@ from unittest import TestCase
 from unittest.mock import MagicMock
 
 from global_sequence_alignment.needleman_wunsch import (
+    Alignment,
     ConstantGapPenalty,
     InvalidSymbolError,
     NucleotideSubstitutionMatrix,
@@ -50,6 +51,7 @@ class TestScoringMatrix(TestCase):
         )
 
         self.assertEqual(scoring_matrix.scoring_matrix, [[0]])
+        self.assertEqual(scoring_matrix.traceback_matrix, [[None]])
 
     def test_building_scoring_matrix_for_nonempty_sequences(self):
         sequence_1 = "ABC"
@@ -134,6 +136,55 @@ class TestScoringMatrix(TestCase):
             ],
         ]
         self.assertEqual(scoring_matrix.traceback_matrix, expected_traceback_matrix)
+
+    def test_getting_alignment_for_empty_sequences(self):
+        sequence_1 = ""
+        sequence_2 = ""
+        scoring_function = MagicMock(gap_penalty=-1)
+        substitution_matrix = MagicMock()
+
+        scoring_matrix = ScoringMatrix(
+            sequence_1, sequence_2, scoring_function, substitution_matrix
+        )
+
+        alignments = scoring_matrix.get_alignments()
+
+        expected_alignment = Alignment("", "")
+        self.assertEqual(alignments, [expected_alignment])
+
+    def test_getting_alignment_for_multiple_symbol_sequences(self):
+        sequence_1 = "ATC"
+        sequence_2 = "ATC"
+        scoring_function = ConstantGapPenalty(gap_penalty=-1)
+        substitution_matrix = NucleotideSubstitutionMatrix()
+
+        scoring_matrix = ScoringMatrix(
+            sequence_1, sequence_2, scoring_function, substitution_matrix
+        )
+
+        scoring_matrix.fill()
+
+        alignments = scoring_matrix.get_alignments()
+
+        expected_alignment = Alignment("ATC", "ATC")
+        self.assertEqual(alignments, [expected_alignment])
+
+    def test_getting_alignment_for_multiple_symbol_sequences_with_differences(self):
+        sequence_1 = "GA"
+        sequence_2 = "G"
+        scoring_function = ConstantGapPenalty(gap_penalty=-1)
+        substitution_matrix = NucleotideSubstitutionMatrix()
+
+        scoring_matrix = ScoringMatrix(
+            sequence_1, sequence_2, scoring_function, substitution_matrix
+        )
+
+        scoring_matrix.fill()
+
+        alignments = scoring_matrix.get_alignments()
+
+        expected_alignment = Alignment("GA", "G-")
+        self.assertEqual(alignments, [expected_alignment])
 
 
 # class TestNeedlemanWunsch(TestCase):

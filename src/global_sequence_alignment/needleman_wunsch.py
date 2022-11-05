@@ -82,10 +82,18 @@ class NucleotideSubstitutionMatrix(SubstitutionMatrix):
 
 
 class Alignment:
-    def __init__(self):
-        pass
+    def __init__(self, sequence_1: str, sequence_2: str):
+        self.sequence_1 = sequence_1
+        self.sequence_2 = sequence_2
 
-    # TODO: Think how to model alignment between two sequences
+    # TODO: Implement __str__ method
+    def __eq__(self, other: object) -> bool:
+        return (
+            self.sequence_1 == other.sequence_1 and self.sequence_2 == other.sequence_2  # type: ignore
+        )
+
+    def __repr__(self) -> str:
+        return f"{self.sequence_1}\n{self.sequence_2}"
 
 
 class TracebackDirection(enum.Enum):
@@ -171,9 +179,46 @@ class ScoringMatrix:
                     traceback_directions.append(TracebackDirection.SIDE)
                 self.traceback_matrix[j][i] = traceback_directions
 
-    def traceback(self) -> List[Alignment]:
+    def get_optimal_score(self) -> int:
+        """Get optimal score from the bottom right corner of the matrix"""
+        optimal_score = self.scoring_matrix[-1][-1]
+        if optimal_score is None:
+            raise ValueError("Matrix is not filled")
+        return optimal_score
+
+    def get_alignments(self) -> List[Alignment]:
         """Traceback 2D matrix to find optimal alignments"""
-        pass
+        sequence_1_alignment = ""
+        sequence_2_alignment = ""
+        horizontal_length = len(self.sequence_1)
+        vertical_length = len(self.sequence_2)
+        j = vertical_length
+        i = horizontal_length
+        while i > 0 and j > 0:
+            traceback_directions = self.traceback_matrix[j][i]
+            traceback_direction = traceback_directions[0]  # type: ignore
+            # TODO: Handle multiple traceback directions
+            if traceback_direction == TracebackDirection.DIAGONAL:
+                sequence_1_alignment += self.sequence_1[i - 1]
+                sequence_2_alignment += self.sequence_2[j - 1]
+                i -= 1
+                j -= 1
+            elif traceback_direction == TracebackDirection.UPPER:
+                sequence_1_alignment += "-"
+                sequence_2_alignment += self.sequence_2[j - 1]
+                j -= 1
+            elif traceback_direction == TracebackDirection.SIDE:
+                sequence_1_alignment += self.sequence_1[i - 1]
+                sequence_2_alignment += "-"
+                i -= 1
+            else:
+                raise ValueError("Invalid traceback direction")
+
+        # TODO: Reverse alignments
+        sequence_1_alignment = sequence_1_alignment[::-1]
+        sequence_2_alignment = sequence_2_alignment[::-1]
+
+        return [Alignment(sequence_1_alignment, sequence_2_alignment)]
 
 
 class NeedlemanWunsch:
