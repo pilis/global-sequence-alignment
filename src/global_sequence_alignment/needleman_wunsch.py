@@ -1,4 +1,5 @@
-from typing import Dict, List, Set
+import enum
+from typing import Dict, List, Set, Tuple
 
 
 class ScoringFunction:
@@ -87,6 +88,12 @@ class Alignment:
     # TODO: Think how to model alignment between two sequences
 
 
+class TracebackDirection(enum.Enum):
+    DIAGONAL = 0
+    UPPER = 1
+    SIDE = 2
+
+
 class ScoringMatrix:
     def __init__(
         self,
@@ -104,15 +111,16 @@ class ScoringMatrix:
         self.match_score = match_score
         self.mismatch_score = mismatch_score
 
-        self.scoring_matrix = self._init_scoring_matrix()
+        self._init_matrices()
 
-    def _init_scoring_matrix(self) -> List[List[None]]:  # type: ignore
-        """Initialize 2D matrix for holding scores"""
+    def _init_matrices(self) -> Tuple[List[List[None]], List[List[TracebackDirection]]]:  # type: ignore
+        """Initialize 2D matrix for holding scores and traceback directions"""
         horizontal_length = len(self.sequence_1) + 1
         vertical_length = len(self.sequence_2) + 1
 
-        # Initialize matrix with None values
+        # Initialize matrices with None values
         scoring_matrix = [[None] * horizontal_length for _ in range(vertical_length)]
+        traceback_matrix = [[None] * horizontal_length for _ in range(vertical_length)]
 
         gap_penalty = self.scoring_function.gap_penalty
         # Initialize first row with gap penalties times index
@@ -122,7 +130,8 @@ class ScoringMatrix:
         for j in range(vertical_length):
             scoring_matrix[j][0] = j * gap_penalty  # type: ignore
 
-        return scoring_matrix
+        self.scoring_matrix = scoring_matrix
+        self.traceback_matrix = traceback_matrix
 
     def fill(self):
         """Fill 2D matrix with scores"""
@@ -130,6 +139,7 @@ class ScoringMatrix:
         vertical_length = len(self.sequence_2) + 1
         for j in range(1, vertical_length):
             for i in range(1, horizontal_length):
+                # Check symbol equality
                 symbol_1 = self.sequence_1[i - 1]
                 symbol_2 = self.sequence_2[j - 1]
                 is_symbol_match = self.substitution_matrix.is_equal(symbol_1, symbol_2)
@@ -141,13 +151,25 @@ class ScoringMatrix:
                 upper_value = self.scoring_matrix[j - 1][i]
                 side_value = self.scoring_matrix[j][i - 1]
 
+                # Compute score
                 diagonal_score = diagonal_value + symbol_score
                 upper_score = upper_value + self.scoring_function.gap_penalty
                 side_score = side_value + self.scoring_function.gap_penalty
 
+                # Set score
                 scores = [diagonal_score, upper_score, side_score]
                 max_score = max(scores)
                 self.scoring_matrix[j][i] = max_score
+
+                # Set traceback directions
+                traceback_directions = []
+                if scores[0] == max_score:
+                    traceback_directions.append(TracebackDirection.DIAGONAL)
+                if scores[1] == max_score:
+                    traceback_directions.append(TracebackDirection.UPPER)
+                if scores[2] == max_score:
+                    traceback_directions.append(TracebackDirection.SIDE)
+                self.traceback_matrix[j][i] = traceback_directions
 
     def traceback(self) -> List[Alignment]:
         """Traceback 2D matrix to find optimal alignments"""

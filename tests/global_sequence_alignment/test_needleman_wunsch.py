@@ -6,6 +6,7 @@ from global_sequence_alignment.needleman_wunsch import (
     InvalidSymbolError,
     NucleotideSubstitutionMatrix,
     ScoringMatrix,
+    TracebackDirection,
 )
 
 
@@ -85,6 +86,12 @@ class TestScoringMatrix(TestCase):
         expected_scoring_matrix = [[0, -1], [-1, 1]]
         self.assertEqual(scoring_matrix.scoring_matrix, expected_scoring_matrix)
 
+        expected_traceback_matrix = [
+            [None, None],
+            [None, [TracebackDirection.DIAGONAL]],
+        ]
+        self.assertEqual(scoring_matrix.traceback_matrix, expected_traceback_matrix)
+
     def test_filling_for_multiple_symbol_sequences(self):
         sequence_1 = "ATC"
         sequence_2 = "ATC"
@@ -104,6 +111,29 @@ class TestScoringMatrix(TestCase):
             [-3, -1, 1, 3],
         ]
         self.assertEqual(scoring_matrix.scoring_matrix, expected_scoring_matrix)
+
+        expected_traceback_matrix = [
+            [None, None, None, None],
+            [
+                None,
+                [TracebackDirection.DIAGONAL],
+                [TracebackDirection.SIDE],
+                [TracebackDirection.SIDE],
+            ],
+            [
+                None,
+                [TracebackDirection.UPPER],
+                [TracebackDirection.DIAGONAL],
+                [TracebackDirection.SIDE],
+            ],
+            [
+                None,
+                [TracebackDirection.UPPER],
+                [TracebackDirection.UPPER],
+                [TracebackDirection.DIAGONAL],
+            ],
+        ]
+        self.assertEqual(scoring_matrix.traceback_matrix, expected_traceback_matrix)
 
 
 # class TestNeedlemanWunsch(TestCase):
