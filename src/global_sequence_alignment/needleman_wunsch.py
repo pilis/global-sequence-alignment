@@ -11,6 +11,16 @@ class ScoringFunction:
         raise NotImplementedError
 
 
+class ConstantGapPenalty(ScoringFunction):
+    """Constant gap penalty scoring function"""
+
+    def __init__(self, gap_penalty: int):
+        super().__init__(gap_penalty)
+
+    def score(self, gap_lenght: int) -> int:
+        return self.gap_penalty
+
+
 class LinearGapPenalty(ScoringFunction):
     """Linear gap penalty scoring function"""
 
@@ -84,11 +94,15 @@ class ScoringMatrix:
         sequence_2: str,
         scoring_function: ScoringFunction,
         substitution_matrix: SubstitutionMatrix,
+        match_score: int = 1,
+        mismatch_score: int = -1,
     ):
         self.sequence_1 = sequence_1
         self.sequence_2 = sequence_2
         self.scoring_function = scoring_function
         self.substitution_matrix = substitution_matrix
+        self.match_score = match_score
+        self.mismatch_score = mismatch_score
 
         self.scoring_matrix = self._init_scoring_matrix()
 
@@ -112,7 +126,28 @@ class ScoringMatrix:
 
     def fill(self):
         """Fill 2D matrix with scores"""
-        pass
+        horizontal_length = len(self.sequence_1) + 1
+        vertical_length = len(self.sequence_2) + 1
+        for j in range(1, vertical_length):
+            for i in range(1, horizontal_length):
+                symbol_1 = self.sequence_1[i - 1]
+                symbol_2 = self.sequence_2[j - 1]
+                is_symbol_match = self.substitution_matrix.is_equal(symbol_1, symbol_2)
+                symbol_score = (
+                    self.match_score if is_symbol_match else self.mismatch_score
+                )
+
+                diagonal_value = self.scoring_matrix[j - 1][i - 1]
+                upper_value = self.scoring_matrix[j - 1][i]
+                side_value = self.scoring_matrix[j][i - 1]
+
+                diagonal_score = diagonal_value + symbol_score
+                upper_score = upper_value + self.scoring_function.gap_penalty
+                side_score = side_value + self.scoring_function.gap_penalty
+
+                scores = [diagonal_score, upper_score, side_score]
+                max_score = max(scores)
+                self.scoring_matrix[j][i] = max_score
 
     def traceback(self) -> List[Alignment]:
         """Traceback 2D matrix to find optimal alignments"""
