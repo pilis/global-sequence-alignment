@@ -4,8 +4,8 @@ from typing import Dict, List, Set
 class ScoringFunction:
     """Abstract class for scoring functions"""
 
-    def __init__(self):
-        pass
+    def __init__(self, gap_penalty: int):
+        self.gap_penalty = gap_penalty
 
     def score(self, gap_lenght: int) -> int:
         raise NotImplementedError
@@ -15,7 +15,8 @@ class LinearGapPenalty(ScoringFunction):
     """Linear gap penalty scoring function"""
 
     def __init__(self, gap_penalty: int):
-        self.gap_penalty = gap_penalty
+        super().__init__(gap_penalty)
+        pass
 
     def score(self, gap_length: int) -> int:
         return gap_length * self.gap_penalty
@@ -25,7 +26,7 @@ class AffineGapPenalty(ScoringFunction):
     """Affine gap penalty scoring function"""
 
     def __init__(self, gap_penalty: int, gap_extension_penalty: int):
-        self.gap_penalty = gap_penalty
+        super().__init__(gap_penalty)
         self.gap_extension_penalty = gap_extension_penalty
 
     def score(self, gap_length: int) -> int:
@@ -89,11 +90,27 @@ class ScoringMatrix:
         self.scoring_function = scoring_function
         self.substitution_matrix = substitution_matrix
 
-    def _build(self):
-        """Initialize 2D matrix for holding scores"""
-        pass
+        self.scoring_matrix = self._init_scoring_matrix()
 
-    def _fill(self):
+    def _init_scoring_matrix(self) -> List[List[None]]:  # type: ignore
+        """Initialize 2D matrix for holding scores"""
+        horizontal_length = len(self.sequence_1) + 1
+        vertical_length = len(self.sequence_2) + 1
+
+        # Initialize matrix with None values
+        scoring_matrix = [[None] * horizontal_length for _ in range(vertical_length)]
+
+        gap_penalty = self.scoring_function.gap_penalty
+        # Initialize first row with gap penalties times index
+        for i in range(horizontal_length):
+            scoring_matrix[0][i] = i * gap_penalty  # type: ignore
+        # Initialize first column with gap penalties times index
+        for j in range(vertical_length):
+            scoring_matrix[j][0] = j * gap_penalty  # type: ignore
+
+        return scoring_matrix
+
+    def fill(self):
         """Fill 2D matrix with scores"""
         pass
 
