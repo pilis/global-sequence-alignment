@@ -307,6 +307,32 @@ class ScoringMatrix:
 
         return [Alignment(sequence_1_alignment, sequence_2_alignment)]
 
+    def __str__(self) -> str:
+        """String representation of the matrix"""
+        horizontal_length = (len(self.sequence_1) + 1) * 2
+        vertical_length = (len(self.sequence_2) + 1) * 2
+        output = [
+            ["  " for _ in range(horizontal_length)] for __ in range(vertical_length)
+        ]
+        for row_idx, row in enumerate(self.scoring_matrix):
+            for column_idx, cell in enumerate(row):
+                value = str(cell).rjust(2)
+                output[row_idx * 2 + 1][column_idx * 2 + 1] = value
+        for row_idx, row in enumerate(self.traceback_matrix):
+            for column_idx, traceback_directions in enumerate(row):
+                if traceback_directions is None:
+                    continue
+                for traceback_direction in traceback_directions:
+                    if traceback_direction == TracebackDirection.DIAGONAL:
+                        output[row_idx * 2][column_idx * 2] = " ↖"
+                    elif traceback_direction == TracebackDirection.UPPER:
+                        output[row_idx * 2][column_idx * 2 + 1] = " ↑"
+                    elif traceback_direction == TracebackDirection.SIDE:
+                        output[row_idx * 2 + 1][column_idx * 2] = " ←"
+        # Stringify output
+        output_stringified = "\n".join(["".join(row) for row in output])
+        return output_stringified
+
 
 SCORING_FUNCTIONS = {
     "constant": ConstantGapPenalty,
@@ -341,7 +367,9 @@ class NeedlemanWunsch:
         else:
             self.substitution_matrix = substitution_matrix  # type: ignore
 
-    def align(self, sequence_1, sequence_2) -> Tuple[List[Alignment], int]:
+    def align(
+        self, sequence_1, sequence_2
+    ) -> Tuple[List[Alignment], int, ScoringMatrix]:
         """Align two sequences using the Needleman-Wunsch algorithm"""
         scoring_matrix = ScoringMatrix(
             sequence_1, sequence_2, self.scoring_function, self.substitution_matrix
@@ -349,4 +377,4 @@ class NeedlemanWunsch:
         scoring_matrix.fill()
         alignments = scoring_matrix.get_alignments()
         optimal_score = scoring_matrix.get_optimal_score()
-        return alignments, optimal_score
+        return alignments, optimal_score, scoring_matrix

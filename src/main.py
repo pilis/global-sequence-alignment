@@ -38,6 +38,11 @@ def write_optimal_alignments_to_file(file_path, alignments):
     is_flag=True,
     help="If set, instead of reading sequences from files, the sequences are read from the command line",
 )
+@click.option(
+    "--print_scoring_matrix",
+    is_flag=True,
+    help="If set, the scoring matrix is printed to the console",
+)
 @click.option("--output-path")
 def main(
     sequence_1: str,
@@ -46,6 +51,7 @@ def main(
     substitution_matrix: str,
     direct: bool,
     output_path: str,
+    print_scoring_matrix: bool = False,
 ) -> None:
     """Run Needleman-Wunsch algorithm"""
     if not direct:
@@ -56,15 +62,27 @@ def main(
         sequence_2 = read_fasta_file(sequence_2)
         logging.info(f"Length: {len(sequence_2)}")
     logging.info("Sequences loaded")
+
+    # Execute Needleman-Wunsch algorithm
     needleman_wunsch = NeedlemanWunsch(scoring_function, substitution_matrix)
-    alignments, optimal_score = needleman_wunsch.align(sequence_1, sequence_2)
+    alignments, optimal_score, scoring_matrix = needleman_wunsch.align(
+        sequence_1, sequence_2
+    )
+
+    # Print optimal score
     print(f"Optimal score: {optimal_score}")
 
+    # Print optimal alignments
     if output_path:
         write_optimal_alignments_to_file(output_path, alignments)
     else:
         for alignment in alignments:
             print(alignment)
+
+    # Print scoring matrix
+    print("Scoring and traceback matrix:")
+    if print_scoring_matrix:
+        print(scoring_matrix)
 
 
 if __name__ == "__main__":
