@@ -275,37 +275,64 @@ class ScoringMatrix:
     def get_alignments(self) -> List[Alignment]:
         """Traceback 2D matrix to find optimal alignments"""
         logging.info("Starting extracting alignments")
-        sequence_1_alignment = ""
-        sequence_2_alignment = ""
+
         horizontal_length = len(self.sequence_1)
         vertical_length = len(self.sequence_2)
-        j = vertical_length
-        i = horizontal_length
-        while i > 0 and j > 0:
+
+        def get_alignments_recursive(
+            sequence_1_alignment, sequence_2_alignment, i, j
+        ) -> List[Alignment]:
+            # When we reach the top left corner of the matrix, we have found an alignment
+            if i == 0 and j == 0:
+                return [Alignment(sequence_1_alignment, sequence_2_alignment)]
+
+            # Otherwise, we need to check if we path ended not in the top left corner
             traceback_directions = self.traceback_matrix[j][i]
-            traceback_direction = traceback_directions[0]  # type: ignore
-            # TODO: Handle multiple traceback directions
-            if traceback_direction == TracebackDirection.DIAGONAL:
-                sequence_1_alignment += self.sequence_1[i - 1]
-                sequence_2_alignment += self.sequence_2[j - 1]
-                i -= 1
-                j -= 1
-            elif traceback_direction == TracebackDirection.UPPER:
-                sequence_1_alignment += "-"
-                sequence_2_alignment += self.sequence_2[j - 1]
-                j -= 1
-            elif traceback_direction == TracebackDirection.SIDE:
-                sequence_1_alignment += self.sequence_1[i - 1]
-                sequence_2_alignment += "-"
-                i -= 1
-            else:
-                raise ValueError("Invalid traceback direction")
+            if not traceback_directions:
+                return []
+            if j == 0 and TracebackDirection.UPPER not in traceback_directions:
+                return []
+            if i == 0 and TracebackDirection.SIDE not in traceback_directions:
+                return []
 
-        # TODO: Reverse alignments
-        sequence_1_alignment = sequence_1_alignment[::-1]
-        sequence_2_alignment = sequence_2_alignment[::-1]
+            # If we have multiple directions, we need to create multiple alignments
+            alignments = []
+            for traceback_direction in traceback_directions:
+                found_alignments = []
+                if traceback_direction == TracebackDirection.DIAGONAL:
+                    found_alignments = get_alignments_recursive(
+                        self.sequence_1[i - 1] + sequence_1_alignment,
+                        self.sequence_2[j - 1] + sequence_2_alignment,
+                        i - 1,
+                        j - 1,
+                    )
+                elif traceback_direction == TracebackDirection.UPPER:
+                    found_alignments = get_alignments_recursive(
+                        "-" + sequence_1_alignment,
+                        self.sequence_2[j - 1] + sequence_2_alignment,
+                        i,
+                        j - 1,
+                    )
+                elif traceback_direction == TracebackDirection.SIDE:
+                    found_alignments = get_alignments_recursive(
+                        self.sequence_1[i - 1] + sequence_1_alignment,
+                        "-" + sequence_2_alignment,
+                        i - 1,
+                        j,
+                    )
+                else:
+                    raise ValueError("Invalid traceback direction")
+                alignments.extend(found_alignments)
+            return alignments
 
-        return [Alignment(sequence_1_alignment, sequence_2_alignment)]
+        alignments = get_alignments_recursive(
+            sequence_1_alignment="",
+            sequence_2_alignment="",
+            i=horizontal_length,
+            j=vertical_length,
+        )
+
+        return alignments
 
     def __str__(self) -> str:
         """String representation of the matrix"""

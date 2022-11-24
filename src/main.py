@@ -70,16 +70,22 @@ def main(
     )
 
     # Print optimal score
+    print("\n")
     print(f"Optimal score: {optimal_score}")
 
     # Print optimal alignments
     if output_path:
         write_optimal_alignments_to_file(output_path, alignments)
     else:
-        for alignment in alignments:
+        print("\n")
+        print("Optimal alignments:")
+        for alignment_idx, alignment in enumerate(alignments):
+            print("Found alignment #{}:".format(alignment_idx + 1))
             print(alignment)
+            print("\n")
 
     # Print scoring matrix
+    print("\n")
     print("Scoring and traceback matrix:")
     if print_scoring_matrix:
         print(scoring_matrix)
